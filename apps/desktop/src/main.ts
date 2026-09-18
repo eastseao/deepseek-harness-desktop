@@ -12,9 +12,11 @@ import {
   Menu,
   powerMonitor,
   nativeTheme,
+  nativeImage,
   protocol,
   session,
   shell,
+  Tray,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from 'electron'
@@ -190,6 +192,25 @@ async function main(): Promise<void> {
   const development = !app.isPackaged
   const activeProject = paths.profile
   const manager = new DesktopProjectManager(paths, resources)
+  // Close-to-tray preference persisted beside the Desktop profile. Defaults to
+  // keeping the application resident in the tray when the window is closed.
+  let closeToTray = true
+  const desktopSettingsPath = join(paths.profile, 'desktop-settings.json')
+  const loadDesktopSettings = async (): Promise<void> => {
+    try {
+      const parsed: unknown = JSON.parse(await readFile(desktopSettingsPath, 'utf8'))
+      if (typeof parsed === 'object' && parsed !== null
+        && typeof (parsed as { closeToTray?: unknown }).closeToTray === 'boolean') {
+        closeToTray = (parsed as { closeToTray: boolean }).closeToTray
+      }
+    } catch { /* first run or unreadable settings: keep the default */ }
+  }
+  const saveCloseToTray = async (value: boolean): Promise<void> => {
+    closeToTray = value
+    try {
+      await writeFile(desktopSettingsPath, `${JSON.stringify({ closeToTray: value }, null, 2)}\n`, 'utf8')
+    } catch (error) { console.error('desktop settings: could not persist closeToTray', error) }
+  }
   let quitting = false
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
@@ -573,6 +594,7 @@ async function main(): Promise<void> {
     updateSchedule.dispose()
     powerMonitor.off('resume', automaticCheck)
     updates.dispose()
+    tray?.destroy()
   })
 
   app.setAboutPanelOptions({
@@ -660,6 +682,14 @@ async function main(): Promise<void> {
     mainWindow = window
     window.on('focus', automaticCheck)
     window.on('closed', () => { if (mainWindow === window) mainWindow = undefined })
+    window.on('close', (event) => {
+      // Closing the window hides it into the tray while the profile keeps
+      // running; the tray or application menu quits for real.
+      if (closeToTray && !quitting && !shuttingDown) {
+        event.preventDefault()
+        window.hide()
+      }
+    })
     window.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
       if (isMainFrame && code !== -3 && !quitting && !window.isDestroyed()) {
         reportFatal(new Error(`Desktop page failed to load: ${url} (${String(code)}: ${description})`))
@@ -715,7 +745,31 @@ async function main(): Promise<void> {
       .catch((error: unknown) => { console.error(error) }).finally(() => { app.quit() })
   })
 
+  await loadDesktopSettings()
   mainWindow = createMainWindow()
+  // System tray: open the window, toggle close-to-tray residency, or quit.
+  let tray: Tray | undefined
+  if (process.platform === 'win32') {
+    const trayIcon = nativeImage.createFromPath(development
+      ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+      : join(process.resourcesPath, 'icon.png'))
+    tray = new Tray(trayIcon)
+    tray.setToolTip('DeepSeek Harness')
+    const rebuildTrayMenu = (): void => {
+      tray?.setContextMenu(Menu.buildFromTemplate([
+        { label: messages.openApplication, click: () => focusPrimaryWindow() },
+        { type: 'separator' },
+        {
+          label: messages.closeToTray, type: 'checkbox', checked: closeToTray,
+          click: (item) => { void saveCloseToTray(item.checked) },
+        },
+        { type: 'separator' },
+        { label: messages.exitApplication, click: () => { app.quit() } },
+      ]))
+    }
+    rebuildTrayMenu()
+    tray.on('click', () => focusPrimaryWindow())
+  }
   const manifest: unknown = JSON.parse(await readFile(join(app.getAppPath(), 'package.json'), 'utf8'))
   if (typeof manifest !== 'object' || manifest === null) throw new Error('desktop policy: invalid application manifest')
   const developmentPolicy = app.isPackaged ? undefined : process.env.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG

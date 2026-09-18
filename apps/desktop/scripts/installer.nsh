@@ -7,6 +7,10 @@
   !define MUI_CUSTOMFUNCTION_GUIINIT InstallerGuiInit
 !endif
 
+; "current" installs only for the running user; "all" installs for every user
+; (the welcome page re-launches elevated when all-users is chosen).
+Var InstallerMode
+
 !macro customHeader
   !define /ifndef INSTALLER_STRINGS_FILE "${INSTALLER_SOURCE_DIR}\strings.nsh"
   !include "${INSTALLER_STRINGS_FILE}"
@@ -18,20 +22,15 @@
 !macroend
 
 !macro customInit
-  ${If} ${isForAllUsers}
-    MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_PER_USER)" /SD IDOK
-    SetErrorLevel 2
-    Quit
+  StrCpy $InstallerMode "current"
+  ${GetParameters} $0
+  ${GetOptions} $0 "/allusers" $1
+  ${If} ${Errors}
+    ${GetOptions} $0 "/ALLUSERS" $1
   ${EndIf}
-  ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
-  ${If} $0 != ""
-    MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_PER_USER)" /SD IDOK
-    SetErrorLevel 2
-    Quit
+  ${IfNot} ${Errors}
+    StrCpy $InstallerMode "all"
   ${EndIf}
-  !insertmacro setInstallModePerUser
-  StrCpy $hasPerMachineInstallation 0
-  StrCpy $hasPerUserInstallation 1
   StrCpy $InstallerPath $INSTDIR
   StrCpy $InstallerTheme "auto"
   ${GetParameters} $0
@@ -55,18 +54,30 @@
   File "/oname=$PLUGINSDIR\brand-dark-2x.bmp" "${INSTALLER_BUILD_DIR}\brand-dark-2x.bmp"
   File "/oname=$PLUGINSDIR\window-frame.dll" "${INSTALLER_BUILD_DIR}\window-frame.dll"
   ${If} ${Silent}
-    Call InstallerPreflight
-    ${If} $InstallerError != ""
-      SetErrorLevel 2
-      Quit
+    ${If} $InstallerMode != "all"
+      ; Silent all-users installs elevate inside the install section.
+      Call InstallerPreflight
+      ${If} $InstallerError != ""
+        SetErrorLevel 2
+        Quit
+      ${EndIf}
     ${EndIf}
   ${EndIf}
 !macroend
 
 !macro customInstallMode
-  ; Preserve the directory selected on the custom welcome page.
-  StrCpy $installMode CurrentUser
-  SetShellVarContext current
+  ; The install mode is chosen on the custom welcome page (installer) or
+  ; restored from the registry (uninstaller); keep the stock mode-selection
+  ; page skipped and mirror the active mode into electron-builder's state.
+  ${If} $installMode == "all"
+    StrCpy $hasPerMachineInstallation 1
+    StrCpy $hasPerUserInstallation 0
+  ${Else}
+    StrCpy $installMode CurrentUser
+    SetShellVarContext current
+    StrCpy $hasPerMachineInstallation 0
+    StrCpy $hasPerUserInstallation 1
+  ${EndIf}
   Abort
 !macroend
 

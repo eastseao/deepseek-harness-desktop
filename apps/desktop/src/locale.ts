@@ -86,6 +86,8 @@ export const en = {
   mandatoryCopyFailed: 'Copy failed. Select and copy the address below manually.',
   mandatoryAddress: 'Download address',
   mandatoryNotification: 'Return to the application to confirm installation and restart.',
+  openApplication: 'Open DeepSeek Harness',
+  closeToTray: 'Keep in tray when closing the window',
 } as const
 
 /** Every Desktop locale supplies the complete English key set. */
@@ -177,6 +179,8 @@ export const zh = {
   mandatoryCopyFailed: '复制失败，请手动选择下方地址复制。',
   mandatoryAddress: '下载地址',
   mandatoryNotification: '返回应用确认安装并重启。',
+  openApplication: '打开 DeepSeek Harness',
+  closeToTray: '关闭窗口时最小化到托盘',
 } as const satisfies DesktopMessages
 
 /** Locale payload exposed to the Desktop-owned renderer. */

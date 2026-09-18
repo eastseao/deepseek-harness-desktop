@@ -135,6 +135,23 @@ gh release create v<version> --repo <owner>/deepseek-harness-desktop `
   <path>\deepseek-harness-<version>-win-x64.exe.blockmap
 ```
 
+## 本发行版的修改（相对官方 0.1.6-alpha.2）
+
+本仓库面向桌面端发行维护，在官方源码之上做了以下修改（均在此仓库内可查）：
+
+1. **关闭首启"内测声明"弹窗**：官方 Web 前端首启会弹出毛玻璃背景的"内测声明"（WelcomeNotice）。
+   本发行版在官方 monorepo 的 `packages/client/ui-settings-models/src/client/welcome-store.ts`
+   中将 welcome 确认状态恒置为已确认，弹窗不再出现（该补丁位于官方 monorepo，不在本仓库内；
+   重新打包时需在官方源码中应用同一改动）。API Key 引导（无可用 provider 时）保留。
+2. **安装器支持"所有用户 / 当前用户"**：安装欢迎页新增安装范围单选。选择"所有用户"时
+   安装程序自动请求管理员权限（UAC）并以相同安装目录重启继续；选择"仅当前用户"维持原有
+   免提权安装。卸载器会按注册表自动匹配两种安装范围。
+3. **关闭窗口时可常驻托盘栏**：主进程新增系统托盘（win32）。关闭主窗口默认最小化到托盘，
+   托盘菜单可切换"关闭窗口时最小化到托盘"（持久化到 profile 的 `desktop-settings.json`），
+   并提供"打开主界面 / 退出"。应用菜单"退出"与托盘"退出"均走完整退出流程。
+
+---
+
 ## 注意事项
 
 - 免签名产物首次运行会被 SmartScreen 提示，选择"仍要运行"即可；正式分发需配置 EV 证书重新打包。

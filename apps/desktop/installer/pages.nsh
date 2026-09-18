@@ -18,6 +18,8 @@ Var InstallerEditFrame
 Var InstallerBrowse
 Var InstallerLaunch
 Var InstallerExpanded
+Var InstallerModeAll
+Var InstallerModeCurrent
 !include "${__FILEDIR__}\path.nsh"
 !include "${__FILEDIR__}\drawing.nsh"
 
@@ -87,6 +89,24 @@ Function InstallerCreate
     ${NSD_AddStyle} $InstallerStatus ${SS_CENTER}|${SS_CENTERIMAGE}
     SendMessage $InstallerStatus ${WM_SETFONT} $InstallerSmallFont 1
     !insertmacro InstallerControlColors $InstallerStatus
+
+    ${NSD_CreateRadioButton} 0 0 0 0 "$(INSTALLER_MODE_ALL)"
+    Pop $InstallerModeAll
+    !insertmacro InstallerPlace $InstallerModeAll 64 380 300 24
+    SendMessage $InstallerModeAll ${WM_SETFONT} $InstallerSmallFont 1
+    !insertmacro InstallerControlColors $InstallerModeAll
+    ${NSD_OnClick} $InstallerModeAll InstallerModeChanged
+    ${NSD_CreateRadioButton} 0 0 0 0 "$(INSTALLER_MODE_CURRENT)"
+    Pop $InstallerModeCurrent
+    !insertmacro InstallerPlace $InstallerModeCurrent 372 380 176 24
+    SendMessage $InstallerModeCurrent ${WM_SETFONT} $InstallerSmallFont 1
+    !insertmacro InstallerControlColors $InstallerModeCurrent
+    ${NSD_OnClick} $InstallerModeCurrent InstallerModeChanged
+    ${If} $InstallerMode == "all"
+        ${NSD_Check} $InstallerModeAll
+    ${Else}
+        ${NSD_Check} $InstallerModeCurrent
+    ${EndIf}
 
     ${NSD_CreateButton} 0 0 0 0 "$(INSTALLER_CHOOSE_PATH)"
     Pop $InstallerChoose
@@ -186,11 +206,15 @@ Function InstallerRender
     ShowWindow $InstallerBrowse 0
     ShowWindow $InstallerLaunch 0
     ShowWindow $InstallerStatus 0
+    ShowWindow $InstallerModeAll 0
+    ShowWindow $InstallerModeCurrent 0
     ${If} $InstallerPhase == "success"
         ${NSD_SetText} $InstallerButton "$(INSTALLER_FINISH)"
         ShowWindow $InstallerLaunch 5
     ${Else}
         ${NSD_SetText} $InstallerButton "$(INSTALLER_INSTALL)"
+        ShowWindow $InstallerModeAll 5
+        ShowWindow $InstallerModeCurrent 5
         ${If} $InstallerExpanded == 1
             ShowWindow $InstallerEditFrame 5
             ShowWindow $InstallerEdit 5
@@ -206,13 +230,63 @@ Function InstallerStart
     SendMessage $HWNDPARENT ${WM_NOTIFY_OUTER_NEXT} 1 0
 FunctionEnd
 
+Function InstallerModeChanged
+    Pop $0
+    ${If} $0 == $InstallerModeAll
+        ${NSD_Uncheck} $InstallerModeCurrent
+        StrCpy $InstallerMode "all"
+    ${Else}
+        ${NSD_Uncheck} $InstallerModeAll
+        StrCpy $InstallerMode "current"
+    ${EndIf}
+FunctionEnd
+
 ; Page leave callbacks also run when Enter activates NSIS's hidden default button.
 Function InstallerWelcomeLeave
+    ${NSD_GetState} $InstallerModeAll $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $InstallerMode "all"
+    ${Else}
+        StrCpy $InstallerMode "current"
+    ${EndIf}
     ${NSD_GetText} $InstallerEdit $InstallerPath
-    Call InstallerPreflight
+    Call InstallerValidatePath
     ${If} $InstallerError != ""
         MessageBox MB_OK|MB_ICONEXCLAMATION "$InstallerError"
         Abort
+    ${EndIf}
+    ${If} $InstallerMode == "all"}
+        ${IfNot} ${UAC_IsAdmin}
+            ; An all-users install must run elevated; relaunch with the same
+            ; theme and selected folder, then let this instance exit.
+            MessageBox MB_OK|MB_ICONINFORMATION "$(INSTALLER_ELEVATION)" /SD IDOK
+            ${GetParameters} $0
+            ${GetOptions} $0 "/THEME=" $1
+            ${If} ${Errors}
+                StrCpy $1 $InstallerTheme
+            ${EndIf}
+            ExecShell "runas" "$EXEPATH" '/allusers /THEME=$1 /D="$InstallerPath"'
+            Quit
+        ${EndIf}
+        Call InstallerPreflight
+        ${If} $InstallerError != ""
+            MessageBox MB_OK|MB_ICONEXCLAMATION "$InstallerError"
+            Abort
+        ${EndIf}
+        !insertmacro setInstallModePerAllUsers
+        StrCpy $INSTDIR $InstallerPath
+        StrCpy $hasPerMachineInstallation 1
+        StrCpy $hasPerUserInstallation 0
+    ${Else}
+        Call InstallerPreflight
+        ${If} $InstallerError != ""
+            MessageBox MB_OK|MB_ICONEXCLAMATION "$InstallerError"
+            Abort
+        ${EndIf}
+        !insertmacro setInstallModePerUser
+        StrCpy $INSTDIR $InstallerPath
+        StrCpy $hasPerMachineInstallation 0
+        StrCpy $hasPerUserInstallation 1
     ${EndIf}
 FunctionEnd
 
