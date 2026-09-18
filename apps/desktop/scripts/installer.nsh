@@ -9,7 +9,9 @@
 
 ; "current" installs only for the running user; "all" installs for every user
 ; (the welcome page re-launches elevated when all-users is chosen).
+!ifndef BUILD_UNINSTALLER
 Var InstallerMode
+!endif
 
 !macro customHeader
   !define /ifndef INSTALLER_STRINGS_FILE "${INSTALLER_SOURCE_DIR}\strings.nsh"
@@ -69,16 +71,18 @@ Var InstallerMode
   ; The install mode is chosen on the custom welcome page (installer) or
   ; restored from the registry (uninstaller); keep the stock mode-selection
   ; page skipped and mirror the active mode into electron-builder's state.
-  ${If} $installMode == "all"
-    StrCpy $hasPerMachineInstallation 1
-    StrCpy $hasPerUserInstallation 0
-  ${Else}
-    StrCpy $installMode CurrentUser
-    SetShellVarContext current
-    StrCpy $hasPerMachineInstallation 0
-    StrCpy $hasPerUserInstallation 1
-  ${EndIf}
-  Abort
+  !ifndef BUILD_UNINSTALLER
+    ${If} $InstallerMode == "all"
+      StrCpy $hasPerMachineInstallation 1
+      StrCpy $hasPerUserInstallation 0
+    ${Else}
+      StrCpy $installMode CurrentUser
+      SetShellVarContext current
+      StrCpy $hasPerMachineInstallation 0
+      StrCpy $hasPerUserInstallation 1
+    ${EndIf}
+    Abort
+  !endif
 !macroend
 
 !macro customWelcomePage

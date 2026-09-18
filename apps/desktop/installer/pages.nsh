@@ -255,7 +255,7 @@ Function InstallerWelcomeLeave
         MessageBox MB_OK|MB_ICONEXCLAMATION "$InstallerError"
         Abort
     ${EndIf}
-    ${If} $InstallerMode == "all"}
+    ${If} $InstallerMode == "all"
         ${IfNot} ${UAC_IsAdmin}
             ; An all-users install must run elevated; relaunch with the same
             ; theme and selected folder, then let this instance exit.
