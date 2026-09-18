@@ -1,0 +1,26 @@
+# Dependencies and build outputs
+node_modules/
+.pnpm-store/
+lib/
+*.tsbuildinfo
+dist/
+dist-exe/
+coverage/
+.cache/
+
+# Desktop build outputs and local configuration
+apps/desktop/.desktop-build/
+apps/desktop/.env.windows
+apps/desktop/.env.macos
+apps/desktop/*.p12
+apps/desktop/*.log
+
+# Editor / OS
+.vscode/
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+pnpm-debug.log
