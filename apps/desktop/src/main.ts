@@ -549,11 +549,10 @@ async function main(): Promise<void> {
     void authenticatePolicy().catch((error: unknown) => { console.error(error) })
   }
   const queuePolicyAuthentication = (): void => {
-    if (authenticationOperation !== undefined) {
-      policyAuth?.focus(); updateDialog.focus()
-      return
-    }
-    policyAuthenticationQueued = true
+    // Suppressed for this public desktop distribution: the test-environment
+    // Feishu sign-in prompt ("这是测试版应用，检查更新要求需要先通过飞书登录")
+    // has no meaning for an end-user build and would read as a smoke-test page.
+    // The queue flag is never set, so the drain below is a no-op.
     flushQueuedPolicyAuthentication()
   }
   const runPolicyAuthentication = async () => {

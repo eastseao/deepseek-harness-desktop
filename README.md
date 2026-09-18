@@ -149,6 +149,18 @@ gh release create v<version> --repo <owner>/deepseek-harness-desktop `
 3. **关闭窗口时可常驻托盘栏**：主进程新增系统托盘（win32）。关闭主窗口默认最小化到托盘，
    托盘菜单可切换"关闭窗口时最小化到托盘"（持久化到 profile 的 `desktop-settings.json`），
    并提供"打开主界面 / 退出"。应用菜单"退出"与托盘"退出"均走完整退出流程。
+4. **移除主界面"预览版"徽标**：官方空态 Hero 标题旁有一个 0.5px 细边框、低对比度的"预览版"
+   蓝色小徽标（100% DPI 下观感发虚、像测试页标签）。本发行版在官方 monorepo 的
+   `packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx` 中移除该徽标渲染
+   （该补丁位于官方 monorepo，不在本仓库内；重新打包时需在官方源码中应用同一改动）。
+5. **启动页产品化**：官方启动加载页显示 "HARNESS / Loading plugins…"，观感接近开发/冒烟测试页。
+   本发行版在官方 monorepo 的 `packages/client/web/src/boot-page.ts` 中改为
+   "DeepSeek Harness / 正在启动…"（同文件的测试断言已同步更新；补丁位于官方 monorepo，不在本仓库内）。
+6. **禁用测试环境策略登录弹窗**：测试部署（`DSH_DESKTOP_AUTO_UPDATE_ENV=test`）下，策略检查接口
+   （`harness-test.deepseek.com/api/v0/check_client_update`）恒返回 401+UNAUTHENTICATED，
+   官方代码会弹出"这是测试版应用，检查更新要求需要先通过飞书登录"对话框——普通用户无法完成
+   该测试环境登录，观感即"冒烟测试页"。本发行版在 `apps/desktop/src/main.ts` 的
+   `queuePolicyAuthentication` 中将其抑制为静默日志，策略检查保留但不再打扰用户。
 
 ---
 
